@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hindsight AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+
+<style>
+body {
+  margin: 0;
+  font-family: 'Fira Code', monospace;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+.app { display: flex; height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: #020617;
+  padding: 15px;
+  border-right: 1px solid #1e293b;
+  overflow-y: auto;
+}
+.sidebar h4 { color: #38bdf8; }
+
+.history-item {
+  font-size: 13px;
+  padding: 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: #020617;
+  cursor: pointer;
+}
+.history-item:hover { background: #1e293b; }
+
+/* Chat */
+.chat { flex: 1; display: flex; flex-direction: column; }
+.messages { 
+  flex: 1; 
+  padding: 20px; 
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+
+.msg {
+  max-width: 700px;
+  margin-bottom: 15px;
+  padding: 12px;
+  border-radius: 8px;
+
+  white-space: pre-wrap;      /* line break maintain */
+  word-wrap: break-word;      /* long text break */
+  overflow-wrap: break-word;  /* extra safety */
+}
+.user { background: #1e293b; border-left: 4px solid #38bdf8; }
+.ai { background: #020617; border-left: 4px solid #22c55e; }
+
+.source {
+  font-size: 11px;
+  margin-top: 5px;
+  background: #065f46;
+  padding: 3px 6px;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+/* Input */
+.input-area {
+  padding: 15px;
+  border-top: 1px solid #1e293b;
+}
+textarea {
+  background: #020617 !important;
+  color: #38bdf8 !important;
+}
+button { background: #38bdf8 !important; border: none !important; }
+
+.typing {
+  color: #38bdf8;
+}
+
+/* ================= MOBILE RESPONSIVE ================= */
+@media (max-width: 768px) {
+
+  .app {
+    flex-direction: column;
+  }
+
+  /* Sidebar top pe aa jayega */
+  .sidebar {
+    width: 100%;
+    height: 180px;
+    border-right: none;
+    border-bottom: 1px solid #1e293b;
+  }
+
+  /* Chat full width */
+  .chat {
+    width: 100%;
+  }
+
+  /* Messages padding kam */
+  .messages {
+    padding: 10px;
+  }
+
+  /* Message width full */
+  .msg {
+    max-width: 100%;
+    font-size: 13px;
+  }
+
+  /* Input area compact */
+  .input-area {
+    padding: 10px;
+  }
+
+  textarea {
+    font-size: 13px;
+  }
+
+  button {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  /* History scroll fix */
+  .sidebar {
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .history-item {
+    display: inline-block;
+    min-width: 150px;
+    margin-right: 6px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h4>🧠 Memory</h4>
+
+    <button onclick="clearMemory()" style="width:100%;margin-bottom:10px;background:#ef4444;color:white;border:none;padding:6px;border-radius:6px;">
+      🗑 Clear Memory
+    </button>
+
+    <div id="history"></div>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat">
+
+    <div class="messages" id="messages">
+      <div class="msg ai">👋 Welcome! Hindsight AI ready.</div>
+    </div>
+
+    <div class="input-area">
+      <div class="input-group">
+        <textarea id="errorInput" class="form-control" placeholder="Paste error..."></textarea>
+        <button onclick="send()">Send</button>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+
+// ================= SCROLL =================
+function scrollToBottom() {
+  const messages = document.getElementById("messages");
+
+  // force jump
+  messages.scrollTop = messages.scrollHeight;
+
+  // backup (in case DOM delay)
+  setTimeout(() => {
+    messages.scrollTop = messages.scrollHeight;
+  }, 50);
+}
+
+// ================= LOAD HISTORY =================
+async function loadHistory() {
+  const res = await fetch("/api/history");
+  const data = await res.json();
+
+  const historyDiv = document.getElementById("history");
+  historyDiv.innerHTML = "";
+
+  data.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "history-item";
+    div.innerText = item.error.substring(0, 40) + "...";
+
+    div.onclick = () => {
+      document.getElementById("errorInput").value = item.error;
+    };
+
+    historyDiv.appendChild(div);
+  });
+}
+
+// ================= SEND =================
+async function send() {
+  const input = document.getElementById("errorInput");
+  const text = input.value.trim();
+  if (!text) return;
+
+  const messages = document.getElementById("messages");
+
+  // User msg
+  const userMsg = document.createElement("div");
+  userMsg.className = "msg user";
+  userMsg.innerText = text;
+  messages.appendChild(userMsg);
+  scrollToBottom();
+
+  input.value = "";
+
+  // AI placeholder
+  const aiMsg = document.createElement("div");
+  aiMsg.className = "msg ai typing";
+  aiMsg.innerText = "Thinking...";
+  messages.appendChild(aiMsg);
+  scrollToBottom();
+
+  const res = await fetch("/api/fix-error", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ error: text })
+  });
+
+  const data = await res.json();
+
+  // Typing effect + auto scroll
+  aiMsg.innerText = "";
+  aiMsg.classList.remove("typing");
+
+  let i = 0;
+  const responseText = data.solution;
+
+  function typeEffect() {
+    if (i < responseText.length) {
+      aiMsg.innerText += responseText.charAt(i);
+      i++;
+
+      scrollToBottom();
+      setTimeout(typeEffect, 10);
+    } else {
+      const tag = document.createElement("div");
+      tag.className = "source";
+      tag.innerText = data.source === "memory" ? "⚡ Memory" : "🤖 AI";
+      aiMsg.appendChild(tag);
+
+      scrollToBottom();
+    }
+  }
+
+  aiMsg.innerText = data.solution;
+
+const tag = document.createElement("div");
+tag.className = "source";
+tag.innerText = data.source === "memory" ? "⚡ Memory" : "🤖 AI";
+aiMsg.appendChild(tag);
+
+scrollToBottom(); // 👈 direct jump
+
+  loadHistory();
+}
+
+// ================= CLEAR MEMORY =================
+async function clearMemory() {
+  if (!confirm("Clear all memory?")) return;
+
+  await fetch("/api/history", { method: "DELETE" });
+
+  document.getElementById("messages").innerHTML =
+    '<div class="msg ai">🧠 Memory cleared</div>';
+
+  loadHistory();
+}
+
+// ================= ENTER KEY =================
+document.getElementById("errorInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+// ================= INIT =================
+loadHistory();
+
+</script>
+
+</body>
+</html>
