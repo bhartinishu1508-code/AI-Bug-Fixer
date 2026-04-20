@@ -9,6 +9,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
 
 <style>
+  .mic-active {
+  background: #ef4444 !important;
+  box-shadow: 0 0 10px #ef4444;
+}
 body {
   margin: 0;
   font-family: 'Fira Code', monospace;
@@ -155,7 +159,7 @@ button { background: #38bdf8 !important; border: none !important; }
       🗑 Clear Memory
     </button>
 
-    <div id="history"></div>
+    <div id="history" style="display:none;"></div>
   </div>
 
   <!-- Chat -->
@@ -168,6 +172,22 @@ button { background: #38bdf8 !important; border: none !important; }
     <div class="input-area">
       <div class="input-group">
         <textarea id="errorInput" class="form-control" placeholder="Paste error..."></textarea>
+        <button id="micBtn" onclick="startMic()" style="
+  background:#1e293b;
+  border:none;
+  border-radius:10px;
+  padding:8px;
+  margin-right:5px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+">
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="white" viewBox="0 0 16 16">
+    <path d="M8 1a2 2 0 0 0-2 2v5a2 2 0 0 0 4 0V3a2 2 0 0 0-2-2z"/>
+    <path d="M5 8a3 3 0 0 0 6 0h1a4 4 0 0 1-3 3.87V14h2v1H5v-1h2v-2.13A4 4 0 0 1 4 8h1z"/>
+  </svg>
+</button>
         <button onclick="send()">Send</button>
       </div>
     </div>
@@ -302,6 +322,34 @@ document.getElementById("errorInput").addEventListener("keydown", e => {
 
 // ================= INIT =================
 loadHistory();
+const micBtn = document.getElementById("micBtn");
+
+// 👇 ek hi baar recognition create karo
+const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+
+recognition.lang = "en-US";
+
+// jab voice detect hogi
+recognition.onresult = function (event) {
+  const text = event.results[0][0].transcript;
+  document.getElementById("errorInput").value += " " + text;
+};
+
+// error aaye to mic band
+recognition.onerror = function () {
+  micBtn.classList.remove("mic-active");
+};
+
+// voice khatam hone pe mic band
+recognition.onend = function () {
+  micBtn.classList.remove("mic-active");
+};
+
+// 👇 button click pe ye chalega
+function startMic() {
+  micBtn.classList.add("mic-active");
+  recognition.start();
+}
 
 </script>
 
