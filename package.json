@@ -14,7 +14,7 @@
     "Memory AI",
     "NodeJS"
   ],
-  "author": "Nidha Bharti",
+  "author": "Nisha Bharti",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.15.0",
